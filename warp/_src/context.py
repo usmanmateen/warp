@@ -262,6 +262,7 @@ class Function:
         code_transformers: list[ast.NodeTransformer] | None = None,
         skip_adding_overload: bool = False,
         require_original_output_arg: bool = False,
+        reference_inputs: Sequence[str] = (),
         scope_locals: dict[str, Any] | None = None,
         inline_hint: Literal["noinline", "forceinline"] | None = None,
         adjoint_uses_template_args: bool = False,
@@ -293,6 +294,8 @@ class Function:
         self.replay_snippet = replay_snippet
         self.custom_grad_func: Function | None = None
         self.require_original_output_arg = require_original_output_arg
+        # built-in inputs that the native function takes by non-const reference and updates in place
+        self.reference_inputs = tuple(reference_inputs)
         self.inline_hint = inline_hint
         self.generic_parent = None  # generic function that was used to instantiate this overload
 
@@ -2444,6 +2447,7 @@ def add_builtin(
     defaults: dict[str, Any] | None = None,
     require_original_output_arg: bool = False,
     adjoint_uses_template_args: bool = False,
+    reference_inputs: Sequence[str] = (),
 ):
     """Register a new built-in function.
 
@@ -2498,6 +2502,9 @@ def add_builtin(
             specify whether an adjoint parameter corresponding to the return
             value should be included in the signature of the backward function.
         adjoint_uses_template_args: Pass the dispatch template arguments to the native adjoint.
+        reference_inputs: Names of inputs that the native function takes by non-const
+            reference and updates in place. In kernels and functions, array elements and
+            struct fields passed for them are passed by address, so the update is stored.
     """
     if input_types is None:
         input_types = {}
@@ -2626,6 +2633,7 @@ def add_builtin(
                     adjoint_uses_template_args=adjoint_uses_template_args,
                     defaults=defaults,
                     require_original_output_arg=require_original_output_arg,
+                    reference_inputs=reference_inputs,
                 )
 
     func = Function(
@@ -2651,6 +2659,7 @@ def add_builtin(
         adjoint_uses_template_args=adjoint_uses_template_args,
         defaults=defaults,
         require_original_output_arg=require_original_output_arg,
+        reference_inputs=reference_inputs,
     )
 
     if key in builtin_functions:

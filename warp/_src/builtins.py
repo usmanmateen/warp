@@ -13571,6 +13571,7 @@ add_builtin(
 add_builtin(
     "randi",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=int,
     group="Random",
     doc="""Generate a uniform random 32-bit signed integer in the range [-2^31, 2^31).
@@ -13583,6 +13584,7 @@ add_builtin(
 add_builtin(
     "randi",
     input_types={"state": uint32, "low": int, "high": int},
+    reference_inputs=("state",),
     value_type=int,
     group="Random",
     doc="""Generate a uniform random integer in the range [low, high).
@@ -13597,6 +13599,7 @@ add_builtin(
 add_builtin(
     "randu",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=uint32,
     group="Random",
     doc="""Generate a uniform random unsigned 32-bit integer in the range [0, 2^32).
@@ -13609,6 +13612,7 @@ add_builtin(
 add_builtin(
     "randu",
     input_types={"state": uint32, "low": uint32, "high": uint32},
+    reference_inputs=("state",),
     value_type=uint32,
     group="Random",
     doc="""Generate a uniform random unsigned integer in the range [low, high).
@@ -13623,6 +13627,7 @@ add_builtin(
 add_builtin(
     "randf",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=float,
     group="Random",
     doc="""Generate a uniform random float in the range [0.0, 1.0).
@@ -13651,6 +13656,7 @@ add_builtin(
 add_builtin(
     "randf",
     input_types={"state": uint32, "low": float, "high": float},
+    reference_inputs=("state",),
     value_type=float,
     group="Random",
     doc="""Generate a uniform random float in the range [low, high).
@@ -13664,6 +13670,7 @@ add_builtin(
 add_builtin(
     "randn",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=float,
     group="Random",
     doc="""Sample the standard normal (Gaussian) distribution with mean 0 and variance 1.
@@ -13679,6 +13686,7 @@ add_builtin(
 add_builtin(
     "sample_cdf",
     input_types={"state": uint32, "cdf": array(dtype=float)},
+    reference_inputs=("state",),
     value_type=int,
     group="Random",
     doc="""Sample a discrete distribution by inverse-transform sampling of a CDF.
@@ -13719,6 +13727,7 @@ add_builtin(
 add_builtin(
     "sample_triangle",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec2,
     group="Random",
     doc="""Uniformly sample a point in a triangle, returned as barycentric coordinates.
@@ -13747,6 +13756,7 @@ add_builtin(
 add_builtin(
     "sample_unit_ring",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec2,
     group="Random",
     doc="""Uniformly sample a point on the unit circle (radius 1) in the xy-plane.
@@ -13759,6 +13769,7 @@ add_builtin(
 add_builtin(
     "sample_unit_disk",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec2,
     group="Random",
     doc="""Uniformly sample a point inside the unit disk (radius <= 1) in the xy-plane.
@@ -13771,6 +13782,7 @@ add_builtin(
 add_builtin(
     "sample_unit_sphere_surface",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec3,
     group="Random",
     doc="""Uniformly sample a point on the surface of the unit sphere (radius 1).
@@ -13783,6 +13795,7 @@ add_builtin(
 add_builtin(
     "sample_unit_sphere",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec3,
     group="Random",
     doc="""Uniformly sample a point inside the unit ball (radius <= 1).
@@ -13806,6 +13819,7 @@ add_builtin(
 add_builtin(
     "sample_unit_hemisphere_surface",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec3,
     group="Random",
     doc="""Uniformly sample a point on the surface of the unit hemisphere (radius 1, z >= 0).
@@ -13818,6 +13832,7 @@ add_builtin(
 add_builtin(
     "sample_unit_hemisphere",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec3,
     group="Random",
     doc="""Uniformly sample a point inside the unit hemisphere (radius <= 1, z >= 0).
@@ -13830,6 +13845,7 @@ add_builtin(
 add_builtin(
     "sample_unit_square",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec2,
     group="Random",
     doc="""Uniformly sample a point in the unit square ``[-0.5, 0.5)^2``, centered at the origin.
@@ -13842,6 +13858,7 @@ add_builtin(
 add_builtin(
     "sample_unit_cube",
     input_types={"state": uint32},
+    reference_inputs=("state",),
     value_type=vec3,
     group="Random",
     doc="""Uniformly sample a point in the unit cube ``[-0.5, 0.5)^3``, centered at the origin.
@@ -13855,6 +13872,7 @@ add_builtin(
 add_builtin(
     "poisson",
     input_types={"state": uint32, "lam": float},
+    reference_inputs=("state",),
     value_type=uint32,
     group="Random",
     doc="""Generate a random sample from a Poisson distribution.

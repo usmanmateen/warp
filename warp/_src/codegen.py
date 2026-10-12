@@ -3004,15 +3004,32 @@ class Adjoint:
         func_has_ref_params = any(is_reference(t) for t in parameter_types.values())
 
         fwd_args = []
+        replay_args = []
         reverse_adj_args = []
         reverse_prelude = []
         for i, func_arg in enumerate(func_args):
             arg_name = func_arg_names[i] if i < len(func_arg_names) else None
             parameter_type = parameter_types.get(arg_name)
             parameter_is_ref = is_reference(parameter_type)
+            arg_node = bound_arg_nodes.get(arg_name)
+            if (
+                func.is_builtin()
+                and arg_name in func.reference_inputs
+                and isinstance(arg_node, (ast.Subscript, ast.Attribute))
+                and isinstance(func_arg, Var)
+                and func_arg.ref_origin is not None
+            ):
+                # The native built-in updates this argument in place (e.g. the RNG state of
+                # wp.randf()). Pass array elements and struct fields by address so the update
+                # is stored. Local variables are already passed directly. The replay in the
+                # backward pass works on a copy so it doesn't update the stored value again.
+                ref_var = adj.emit_addressable_reference(arg_node, var=func_arg, purpose=f"'{func.key}' {arg_name}")
+                fwd_args.append(f"*({ref_var.emit()})")
+                replay_args.append(strip_reference(adj.load(func_arg)))
+                reverse_adj_args.append(strip_reference(func_arg))
+                continue
 
             if parameter_is_ref:
-                arg_node = bound_arg_nodes.get(arg_name)
                 func_arg_var = adj.emit_addressable_reference(
                     arg_node,
                     var=func_arg,
@@ -3049,6 +3066,7 @@ class Adjoint:
                 fwd_args.append(func_arg_var)
             else:
                 fwd_args.append(strip_reference(func_arg_var))
+            replay_args.append(fwd_args[-1])
             reverse_adj_args.append(reverse_arg_var)
 
         det_args = adj.deterministic.call_args(func, bound_args)
@@ -3057,21 +3075,21 @@ class Adjoint:
         if return_type is None:
             # handles expression (zero output) functions, e.g.: void do_something();
             forward_call = f"{func.namespace}{func_name}({adj.format_forward_call_args(fwd_args + det_args, use_initializer_list)});"
-            replay_call = forward_call
+            replay_call = f"{func.namespace}{func_name}({adj.format_forward_call_args(replay_args + det_args, use_initializer_list)});"
             if func.custom_replay_func is not None or func.replay_snippet is not None:
-                replay_call = f"{func.namespace}replay_{func_name}({adj.format_forward_call_args(fwd_args + replay_det_args, use_initializer_list)});"
+                replay_call = f"{func.namespace}replay_{func_name}({adj.format_forward_call_args(replay_args + replay_det_args, use_initializer_list)});"
 
         elif not isinstance(return_type, Sequence) or len(return_type) == 1:
             # handle simple function (one output)
             forward_call = f"var_{output} = {func.namespace}{func_name}({adj.format_forward_call_args(fwd_args + det_args, use_initializer_list)});"
-            replay_call = forward_call
+            replay_call = f"var_{output} = {func.namespace}{func_name}({adj.format_forward_call_args(replay_args + det_args, use_initializer_list)});"
             if func.custom_replay_func is not None:
-                replay_call = f"var_{output} = {func.namespace}replay_{func_name}({adj.format_forward_call_args(fwd_args + replay_det_args, use_initializer_list)});"
+                replay_call = f"var_{output} = {func.namespace}replay_{func_name}({adj.format_forward_call_args(replay_args + replay_det_args, use_initializer_list)});"
 
         else:
             # handle multiple value functions
             forward_call = f"{func.namespace}{func_name}({adj.format_forward_call_args(fwd_args + det_args + output, use_initializer_list)});"
-            replay_call = forward_call
+            replay_call = f"{func.namespace}{func_name}({adj.format_forward_call_args(replay_args + det_args + output, use_initializer_list)});"
 
         forward_call, replay_call = adj.deterministic.wrap_unintercepted_side_effect_atomic(
             func, forward_call, replay_call, return_value_used=return_value_used
@@ -3112,7 +3130,7 @@ class Adjoint:
             ) and func.custom_grad_func is None
             reverse_extra_args = adj.deterministic.reverse_call_args(func, bound_args, det_args)
             arg_str = adj.format_reverse_call_args(
-                fwd_args,
+                replay_args,
                 adj_args,
                 output_list,
                 use_initializer_list,

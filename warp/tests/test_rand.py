@@ -308,6 +308,92 @@ def test_poisson(test, device):
     test.assertTrue(np.abs(poisson_high_std - np_poisson_high_std) <= 2e-1)
 
 
+@wp.kernel
+def rand_array_state_kernel(states: wp.array[wp.uint32], out: wp.array2d[float]):
+    tid = wp.tid()
+    out[tid, 0] = wp.randf(states[tid])
+    out[tid, 1] = wp.randf(states[tid])
+    out[tid, 2] = wp.randn(states[tid])
+    out[tid, 3] = wp.sample_unit_sphere(states[tid])[0]
+
+
+@wp.kernel
+def rand_local_state_kernel(states: wp.array[wp.uint32], out: wp.array2d[float]):
+    tid = wp.tid()
+    state = states[tid]
+    out[tid, 0] = wp.randf(state)
+    out[tid, 1] = wp.randf(state)
+    out[tid, 2] = wp.randn(state)
+    out[tid, 3] = wp.sample_unit_sphere(state)[0]
+    states[tid] = state
+
+
+@wp.struct
+class RandState:
+    state: wp.uint32
+
+
+@wp.kernel
+def rand_struct_state_kernel(states: wp.array[RandState], out: wp.array2d[float]):
+    tid = wp.tid()
+    out[tid, 0] = wp.randf(states[tid].state)
+    out[tid, 1] = wp.randf(states[tid].state)
+    out[tid, 2] = wp.randn(states[tid].state)
+    out[tid, 3] = wp.sample_unit_sphere(states[tid].state)[0]
+
+
+def test_rand_state_in_array(test, device):
+    N = 16
+    seeds = np.arange(N, dtype=np.uint32) * np.uint32(7919) + np.uint32(17)
+
+    # drawing from an array element advances the stored state, like drawing from a local copy
+    # and writing it back
+    local_states = wp.array(seeds, dtype=wp.uint32, device=device)
+    local_out = wp.zeros((N, 4), dtype=float, device=device)
+    wp.launch(rand_local_state_kernel, dim=N, inputs=[local_states, local_out], device=device)
+
+    array_states = wp.array(seeds, dtype=wp.uint32, device=device)
+    array_out = wp.zeros((N, 4), dtype=float, device=device)
+    wp.launch(rand_array_state_kernel, dim=N, inputs=[array_states, array_out], device=device)
+
+    np.testing.assert_array_equal(array_out.numpy(), local_out.numpy())
+    np.testing.assert_array_equal(array_states.numpy(), local_states.numpy())
+    test.assertFalse(np.any(array_out.numpy()[:, 0] == array_out.numpy()[:, 1]))
+
+    struct_seeds = np.zeros(N, dtype=RandState.numpy_dtype())
+    struct_seeds["state"] = seeds
+    struct_states = wp.array(struct_seeds, dtype=RandState, device=device)
+    struct_out = wp.zeros((N, 4), dtype=float, device=device)
+    wp.launch(rand_struct_state_kernel, dim=N, inputs=[struct_states, struct_out], device=device)
+
+    np.testing.assert_array_equal(struct_out.numpy(), local_out.numpy())
+    np.testing.assert_array_equal(struct_states.numpy()["state"], local_states.numpy())
+
+
+@wp.kernel
+def rand_scale_kernel(states: wp.array[wp.uint32], x: wp.array[float], y: wp.array[float]):
+    tid = wp.tid()
+    y[tid] = x[tid] * wp.randf(states[tid])
+
+
+def test_rand_state_in_array_backward(test, device):
+    N = 16
+    seeds = np.arange(N, dtype=np.uint32) * np.uint32(7919) + np.uint32(17)
+    states = wp.array(seeds, dtype=wp.uint32, device=device)
+    x = wp.ones(N, dtype=float, device=device, requires_grad=True)
+    y = wp.zeros(N, dtype=float, device=device, requires_grad=True)
+
+    tape = wp.Tape()
+    with tape:
+        wp.launch(rand_scale_kernel, dim=N, inputs=[states, x, y], device=device)
+    forward_states = states.numpy().copy()
+    test.assertFalse(np.array_equal(forward_states, seeds))
+
+    # the backward pass replays the draw on a copy and leaves the stored state as is
+    tape.backward(grads={y: wp.ones(N, dtype=float, device=device)})
+    np.testing.assert_array_equal(states.numpy(), forward_states)
+
+
 devices = get_test_devices()
 
 
@@ -320,6 +406,8 @@ add_function_test(TestRand, "test_randn", test_randn, devices=devices)
 add_function_test(TestRand, "test_sample_cdf", test_sample_cdf, devices=devices)
 add_function_test(TestRand, "test_sampling_methods", test_sampling_methods, devices=devices)
 add_function_test(TestRand, "test_poisson", test_poisson, devices=devices)
+add_function_test(TestRand, "test_rand_state_in_array", test_rand_state_in_array, devices=devices)
+add_function_test(TestRand, "test_rand_state_in_array_backward", test_rand_state_in_array_backward, devices=devices)
 
 
 if __name__ == "__main__":
